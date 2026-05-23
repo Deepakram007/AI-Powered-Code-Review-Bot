@@ -1,0 +1,34 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Rule {
+  id          String   @id @default(uuid())
+  repoPattern String   // e.g. "owner/repo" or "*" for global rules
+  ruleType    String   // "BUG" | "PERFORMANCE" | "SECURITY" | "STYLE" | "GENERAL"
+  description String   // Rule content, e.g. "Always handle errors in catch blocks"
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ReviewComment {
+  id              String   @id @default(uuid())
+  githubCommentId String   @unique // Comment ID from GitHub API to map responses
+  repo            String   // e.g. "owner/repo"
+  prNumber        Int
+  filePath        String
+  line            Int      // The line number in the final file
+  codeSnippet     String   // The diff hunk/lines analyzed
+  explanation     String   // The explanation of the issue
+  suggestion      String   // The code suggestion offered
+  status          String   @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  feedbackText    String?  // Developer reply content (for classification/learning)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
