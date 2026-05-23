@@ -14,6 +14,15 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:alpine
+    container_name: review_bot_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
   web:
     build: .
     container_name: review_bot_app
@@ -26,9 +35,12 @@ services:
     environment:
       - PORT=3000
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/review_bot?schema=public
+      - REDIS_URL=redis://redis:6379
       - NODE_ENV=development
     depends_on:
       - db
+      - redis
 
 volumes:
   postgres_data:
+  redis_data:

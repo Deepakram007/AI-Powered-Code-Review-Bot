@@ -1,13 +1,11 @@
-const db = require('../config/db');
-const ai = require('../config/ai');
+import prisma from '../config/db';
+import { createChatCompletion } from '../config/ai';
 
 /**
  * Handles the event when a PR comment thread is resolved.
  * Indicates that the suggestion was approved and resolved by the developer.
- * 
- * @param {Object} thread The thread object from GitHub Webhook payload
  */
-async function handleThreadResolved(thread) {
+export async function handleThreadResolved(thread: any): Promise<void> {
   const comments = thread.comments;
   if (!comments || comments.length === 0) return;
 
@@ -16,26 +14,24 @@ async function handleThreadResolved(thread) {
   const githubCommentId = String(rootComment.id);
 
   try {
-    const updated = await db.reviewComment.updateMany({
+    const updated = await prisma.reviewComment.updateMany({
       where: { githubCommentId },
-      data: { status: 'APPROVED' }
+      data: { status: 'APPROVED' },
     });
 
     if (updated.count > 0) {
-      console.log(`ReviewComment matching GitHub Comment ID ${githubCommentId} successfully marked as APPROVED.`);
+      console.log(`[feedbackService] ReviewComment matching GitHub Comment ID ${githubCommentId} successfully marked as APPROVED.`);
     }
-  } catch (error) {
-    console.error(`Error updating comment status on thread resolve:`, error.message);
+  } catch (error: any) {
+    console.error(`[feedbackService] Error updating comment status on thread resolve:`, error.message);
   }
 }
 
 /**
  * Handles replies to our bot's review comments.
  * Employs lightweight AI sentiment analysis to determine if the review was accepted or rejected/disagreed.
- * 
- * @param {Object} comment The reply comment object from GitHub Webhook payload
  */
-async function handleReviewCommentCreated(comment) {
+export async function handleReviewCommentCreated(comment: any): Promise<void> {
   // If this comment is not a reply, or is from a bot, skip
   if (!comment.in_reply_to_id || comment.user.type === 'Bot') return;
 
@@ -43,8 +39,8 @@ async function handleReviewCommentCreated(comment) {
   const replyText = comment.body;
 
   // Verify the parent comment is one of ours in the DB
-  const existingReview = await db.reviewComment.findUnique({
-    where: { githubCommentId: parentCommentId }
+  const existingReview = await prisma.reviewComment.findUnique({
+    where: { githubCommentId: parentCommentId },
   });
 
   if (!existingReview) {
@@ -68,29 +64,26 @@ Reply ONLY with "DISAGREE" if they disagreed, rejected it, complained of a false
 Do not output any other text.`;
 
   try {
-    const classification = await ai.createChatCompletion([
+    const classification = await createChatCompletion([
       { role: 'user', content: prompt }
     ]);
 
+    if (!classification) return;
+
     const sanitizedClassification = classification.trim().toUpperCase();
-    const isAgree = sanitizedClassification === 'AGREE';
+    const isAgree = sanitizedClassification.includes('AGREE') && !sanitizedClassification.includes('DISAGREE');
     const status = isAgree ? 'APPROVED' : 'REJECTED';
 
-    await db.reviewComment.update({
+    await prisma.reviewComment.update({
       where: { id: existingReview.id },
       data: {
         status,
-        feedbackText: replyText
-      }
+        feedbackText: replyText,
+      },
     });
 
-    console.log(`Updated ReviewComment ${existingReview.id} status to ${status} based on developer feedback: "${replyText}"`);
-  } catch (error) {
-    console.error(`Error processing developer feedback:`, error.message);
+    console.log(`[feedbackService] Updated ReviewComment ${existingReview.id} status to ${status} based on developer feedback: "${replyText}"`);
+  } catch (error: any) {
+    console.error(`[feedbackService] Error processing developer feedback:`, error.message);
   }
 }
-
-module.exports = {
-  handleThreadResolved,
-  handleReviewCommentCreated
-};

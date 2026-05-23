@@ -7,28 +7,142 @@ generator client {
   provider = "prisma-client-js"
 }
 
-model Rule {
-  id          String   @id @default(uuid())
-  repoPattern String   // e.g. "owner/repo" or "*" for global rules
-  ruleType    String   // "BUG" | "PERFORMANCE" | "SECURITY" | "STYLE" | "GENERAL"
-  description String   // Rule content, e.g. "Always handle errors in catch blocks"
-  enabled     Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model User {
+  id            String               @id @default(uuid())
+  email         String               @unique
+  name          String?
+  githubId      String               @unique
+  githubToken   String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  organizations OrganizationMember[]
+  auditLogs     AuditLog[]
+}
+
+model Organization {
+  id               String               @id @default(uuid())
+  name             String
+  githubOrgId      String               @unique // GitHub Org ID or installation ID
+  billingPlan      String               @default("FREE") // "FREE" | "PRO" | "ENTERPRISE"
+  stripeCustomerId String?
+  billingPeriodEnd DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  repositories     Repository[]
+  teamRules        TeamRule[]
+  members          OrganizationMember[]
+  usageTracking    UsageTracking[]
+  auditLogs        AuditLog[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  userId         String
+  organizationId String
+  role           String       @default("MEMBER") // "OWNER" | "ADMIN" | "MEMBER"
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+model Repository {
+  id             String        @id @default(uuid())
+  githubRepoId   String        @unique
+  name           String
+  fullName       String        // "owner/repo"
+  owner          String
+  organizationId String
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pullRequests   PullRequest[]
+}
+
+model PullRequest {
+  id           String      @id @default(uuid())
+  repositoryId String
+  prNumber     Int
+  title        String
+  htmlUrl      String
+  author       String
+  state        String      @default("OPEN") // "OPEN" | "CLOSED" | "MERGED"
+  headSha      String
+  baseSha      String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  repository   Repository  @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  reviews      Review[]
+
+  @@unique([repositoryId, prNumber])
+}
+
+model Review {
+  id            String          @id @default(uuid())
+  pullRequestId String
+  status        String          @default("PENDING") // "PENDING" | "COMPLETED" | "FAILED"
+  stats         Json?           // e.g. { bug: 0, security: 0, performance: 0, style: 0 }
+  cost          Float?          @default(0.0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  pullRequest   PullRequest     @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  comments      ReviewComment[]
 }
 
 model ReviewComment {
   id              String   @id @default(uuid())
+  reviewId        String?
   githubCommentId String   @unique // Comment ID from GitHub API to map responses
-  repo            String   // e.g. "owner/repo"
+  repo            String   // e.g. "owner/repo" for backward compatibility
   prNumber        Int
   filePath        String
   line            Int      // The line number in the final file
   codeSnippet     String   // The diff hunk/lines analyzed
   explanation     String   // The explanation of the issue
   suggestion      String   // The code suggestion offered
+  severity        String   @default("SUGGESTION") // "CRITICAL" | "WARNING" | "SUGGESTION"
+  commentType     String   @default("GENERAL") // "BUG" | "SECURITY" | "PERFORMANCE" | "STYLE" | "GENERAL"
   status          String   @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
-  feedbackText    String?  // Developer reply content (for classification/learning)
+  feedbackText    String?  // Developer reply content (for sentiment loops)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  review          Review?  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+model TeamRule {
+  id             String       @id @default(uuid())
+  organizationId String
+  repoPattern    String       // "owner/repo" or "*"
+  ruleType       String       // "BUG" | "PERFORMANCE" | "SECURITY" | "STYLE" | "GENERAL"
+  description    String
+  enabled        Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model UsageTracking {
+  id              String       @id @default(uuid())
+  organizationId  String
+  prReviewedCount Int          @default(0)
+  tokensUsed      Int          @default(0)
+  currentMonth    String       // format "YYYY-MM"
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, currentMonth])
+}
+
+model AuditLog {
+  id             String        @id @default(uuid())
+  userId         String?
+  organizationId String?
+  action         String
+  details        Json?
+  ipAddress      String?
+  createdAt      DateTime      @default(now())
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 }

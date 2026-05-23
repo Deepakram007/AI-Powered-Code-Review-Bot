@@ -1,14 +1,17 @@
+export interface DiffHunk {
+  startLine: number;
+  endLine: number;
+  content: string;
+}
+
 /**
  * Parses a Git diff patch to map line numbers in the new file.
  * Returns an array of line numbers that were added or modified in the PR.
- * 
- * @param {string} patch The patch string from GitHub file object
- * @returns {Array<number>} Array of 1-indexed line numbers in the new file that were added or modified.
  */
-function parsePatch(patch) {
+export function parsePatch(patch: string | null | undefined): number[] {
   if (!patch) return [];
 
-  const addedLines = [];
+  const addedLines: number[] = [];
   const lines = patch.split('\n');
   let currentNewLine = 0;
 
@@ -35,17 +38,14 @@ function parsePatch(patch) {
 
 /**
  * Groups diff lines into hunks with line numbers for better AI context.
- * 
- * @param {string} patch The patch string from GitHub file object
- * @returns {Array<{ startLine: number, endLine: number, content: string }>}
  */
-function getDiffHunks(patch) {
+export function getDiffHunks(patch: string | null | undefined): DiffHunk[] {
   if (!patch) return [];
 
-  const hunks = [];
+  const hunks: DiffHunk[] = [];
   const lines = patch.split('\n');
   let currentNewLine = 0;
-  let currentHunk = null;
+  let currentHunk: DiffHunk | null = null;
 
   for (const line of lines) {
     if (line.startsWith('@@')) {
@@ -58,7 +58,7 @@ function getDiffHunks(patch) {
         currentHunk = {
           startLine: currentNewLine,
           endLine: currentNewLine,
-          content: line + '\n'
+          content: line + '\n',
         };
       }
     } else {
@@ -83,8 +83,3 @@ function getDiffHunks(patch) {
 
   return hunks;
 }
-
-module.exports = {
-  parsePatch,
-  getDiffHunks
-};
