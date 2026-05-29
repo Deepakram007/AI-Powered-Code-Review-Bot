@@ -18,8 +18,11 @@ async function startServer() {
     console.log('Successfully connected to PostgreSQL database!');
 
     // 2. Verify Redis Connection
-    console.log('Testing connection to Redis database...');
-    await redisConnection.connect(); // Connect since lazyConnect is true
+    // BullMQ workers may have already triggered the connection — only connect if idle
+    if (redisConnection.status === 'wait') {
+      await redisConnection.connect();
+    }
+    console.log(`Successfully connected to Redis (status: ${redisConnection.status}).`);
 
     // 3. Start Express Server
     app.listen(PORT, () => {

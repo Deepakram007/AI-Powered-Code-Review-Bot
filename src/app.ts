@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import { webhookMiddleware } from './webhooks/github';
+import { buildWebhookMiddleware } from './webhooks/github';
 import rulesRouter from './routes/rules';
 import feedbackRouter from './routes/feedback';
 import billingRouter from './routes/billing';
@@ -17,9 +17,13 @@ app.use(morgan('dev'));
 // CORS enablement
 app.use(cors());
 
-// REGISTER GITHUB WEBHOOK FIRST.
-// It requires raw, unparsed request streams to properly verify webhook signatures
-app.use(webhookMiddleware);
+// REGISTER GITHUB WEBHOOK FIRST (before body parsers).
+// It requires raw, unparsed request streams to properly verify webhook signatures.
+// Returns null when GitHub credentials are not configured (local dev without keys).
+const webhookMiddleware = buildWebhookMiddleware();
+if (webhookMiddleware) {
+  app.use(webhookMiddleware);
+}
 
 // Body parsing configurations for REST routes
 app.use(express.json());

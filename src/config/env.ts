@@ -8,12 +8,12 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid PostgreSQL connection string'),
   REDIS_URL: z.string().url('REDIS_URL must be a valid Redis connection string').default('redis://localhost:6379'),
-  GITHUB_APP_ID: z.coerce.number(),
-  GITHUB_PRIVATE_KEY: z.string(),
-  GITHUB_WEBHOOK_SECRET: z.string(),
-  OPENAI_API_KEY: z.string(),
+  GITHUB_APP_ID: z.coerce.number().default(0),
+  GITHUB_PRIVATE_KEY: z.string().default(''),
+  GITHUB_WEBHOOK_SECRET: z.string().default(''),
+  OPENAI_API_KEY: z.string().default(''),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
-  SLACK_WEBHOOK_URL: z.string().url().optional().or(z.literal('')),
+  SLACK_WEBHOOK_URL: z.string().url().optional().or(z.literal('')).default(''),
 });
 
 const parseResult = envSchema.safeParse(process.env);
