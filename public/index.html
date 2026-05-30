@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Antigravity · AI Code Review Dashboard</title>
+  <meta name="description" content="Antigravity AI Code Review Bot — Monitor pull request reviews, developer feedback sentiment, team rules, and billing quotas in real time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">⚡</span>
+      <span class="logo-text">Antigravity</span>
+      <span class="status-dot" id="statusDot" title="System Status"></span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" id="nav-overview" onclick="switchPage('overview')">
+        <span class="nav-icon">📊</span>
+        <span class="nav-label">Overview</span>
+      </button>
+      <button class="nav-item" id="nav-feedback" onclick="switchPage('feedback')">
+        <span class="nav-icon">🧠</span>
+        <span class="nav-label">Feedback Loop</span>
+      </button>
+      <button class="nav-item" id="nav-rules" onclick="switchPage('rules')">
+        <span class="nav-icon">🛡️</span>
+        <span class="nav-label">Team Rules</span>
+      </button>
+      <button class="nav-item" id="nav-billing" onclick="switchPage('billing')">
+        <span class="nav-icon">💳</span>
+        <span class="nav-label">Billing & Quota</span>
+      </button>
+      <button class="nav-item" id="nav-audit" onclick="switchPage('audit')">
+        <span class="nav-icon">📋</span>
+        <span class="nav-label">Audit Logs</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-version">v1.0.0</div>
+      <button class="refresh-btn" onclick="refreshCurrentPage()" title="Refresh data">
+        <span id="refreshIcon">🔄</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title" id="pageTitle">Overview</h1>
+        <span class="page-subtitle" id="pageSubtitle">Real-time AI code review metrics</span>
+      </div>
+      <div class="topbar-right">
+        <div class="health-badge" id="healthBadge">
+          <span class="health-dot"></span>
+          <span id="healthText">Checking...</span>
+        </div>
+        <div class="last-updated" id="lastUpdated">—</div>
+      </div>
+    </header>
+
+    <!-- PAGE: OVERVIEW -->
+    <section class="page active" id="page-overview">
+      <!-- METRIC CARDS -->
+      <div class="metrics-grid">
+        <div class="metric-card card-purple" id="card-total">
+          <div class="metric-header">
+            <span class="metric-label">Total Reviews</span>
+            <span class="metric-icon">🤖</span>
+          </div>
+          <div class="metric-value" id="totalReviews">—</div>
+          <div class="metric-sub">All time comment count</div>
+          <div class="sparkline-container">
+            <canvas id="sparklineCanvas" width="180" height="40"></canvas>
+          </div>
+        </div>
+
+        <div class="metric-card card-cyan" id="card-accuracy">
+          <div class="metric-header">
+            <span class="metric-label">Accuracy Rate</span>
+            <span class="metric-icon">🎯</span>
+          </div>
+          <div class="accuracy-ring-wrap">
+            <canvas id="accuracyRing" width="120" height="120"></canvas>
+            <div class="accuracy-label-inner">
+              <span class="accuracy-pct" id="accuracyPct">—</span>
+            </div>
+          </div>
+          <div class="metric-sub" id="accuracySub">Approved / total reviewed</div>
+        </div>
+
+        <div class="metric-card card-green" id="card-approved">
+          <div class="metric-header">
+            <span class="metric-label">Approved</span>
+            <span class="metric-icon">✅</span>
+          </div>
+          <div class="metric-value green-val" id="approvedCount">—</div>
+          <div class="metric-sub">Developer-accepted reviews</div>
+          <div class="mini-badge green-badge" id="pendingBadge">— Pending</div>
+        </div>
+
+        <div class="metric-card card-red" id="card-rejected">
+          <div class="metric-header">
+            <span class="metric-label">Rejected</span>
+            <span class="metric-icon">❌</span>
+          </div>
+          <div class="metric-value red-val" id="rejectedCount">—</div>
+          <div class="metric-sub">False positives dismissed</div>
+          <div class="mini-badge red-badge" id="totalBadge">— Total</div>
+        </div>
+      </div>
+
+      <!-- BOTTOM OVERVIEW PANELS -->
+      <div class="overview-panels">
+        <!-- Repo distribution -->
+        <div class="panel" id="panel-repos">
+          <div class="panel-header">
+            <span class="panel-title">📁 Repository Breakdown</span>
+            <span class="panel-badge" id="repoCount">0 repos</span>
+          </div>
+          <div class="panel-body" id="repoList">
+            <div class="empty-state">Loading repositories…</div>
+          </div>
+        </div>
+
+        <!-- Quick feedback preview -->
+        <div class="panel" id="panel-quick-feed">
+          <div class="panel-header">
+            <span class="panel-title">🧠 Recent Feedback</span>
+            <button class="view-all-btn" onclick="switchPage('feedback')">View all →</button>
+          </div>
+          <div class="panel-body" id="quickFeedList">
+            <div class="empty-state">Loading feedback…</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: FEEDBACK LOOP -->
+    <section class="page" id="page-feedback">
+      <div class="page-controls">
+        <div class="filter-group">
+          <label class="filter-label">Status</label>
+          <select class="filter-select" id="feedbackStatusFilter" onchange="loadFeedback()">
+            <option value="">All</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="PENDING">Pending</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Repo</label>
+          <input class="filter-input" id="feedbackRepoFilter" placeholder="owner/repo" onchange="loadFeedback()" />
+        </div>
+        <div class="filter-group">
+          <label class="filter-label">Per page</label>
+          <select class="filter-select" id="feedbackLimitFilter" onchange="loadFeedback()">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="feedback-list" id="feedbackList">
+        <div class="empty-state">Loading feedback loop data…</div>
+      </div>
+
+      <div class="pagination" id="feedbackPagination"></div>
+    </section>
+
+    <!-- PAGE: TEAM RULES -->
+    <section class="page" id="page-rules">
+      <div class="page-controls">
+        <button class="btn btn-primary" onclick="openRuleModal()">➕ Add Rule</button>
+        <div class="filter-group">
+          <label class="filter-label">Organization ID</label>
+          <input class="filter-input" id="rulesOrgFilter" placeholder="Optional org ID" onchange="loadRules()" />
+        </div>
+      </div>
+
+      <div class="rules-grid" id="rulesGrid">
+        <div class="empty-state">Loading team rules…</div>
+      </div>
+
+      <!-- RULE MODAL -->
+      <div class="modal-overlay" id="ruleModal" onclick="closeRuleModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <span id="modalTitle">➕ Add Team Rule</span>
+            <button class="modal-close" onclick="closeRuleModal()">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Rule Type</label>
+              <select class="form-select" id="ruleTypeInput">
+                <option>BUG</option>
+                <option>PERFORMANCE</option>
+                <option>SECURITY</option>
+                <option>STYLE</option>
+                <option>GENERAL</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Repo Pattern</label>
+              <input class="form-input" id="repoPatternInput" placeholder="owner/repo or *" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea class="form-textarea" id="descriptionInput" placeholder="Describe the rule the AI should enforce…" rows="3"></textarea>
+            </div>
+            <div class="form-group form-inline">
+              <label class="form-label">Enabled</label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="enabledInput" checked />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <input type="hidden" id="editingRuleId" />
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeRuleModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveRule()">Save Rule</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE: BILLING -->
+    <section class="page" id="page-billing">
+      <div class="page-controls">
+        <div class="filter-group">
+          <label class="filter-label">Organization ID</label>
+          <input class="filter-input" id="billingOrgId" placeholder="Enter org UUID…" />
+        </div>
+        <button class="btn btn-primary" onclick="loadBilling()">Fetch Usage</button>
+      </div>
+
+      <div class="billing-container" id="billingContainer">
+        <div class="empty-state">Enter an Organization ID and click Fetch Usage.</div>
+      </div>
+    </section>
+
+    <!-- PAGE: AUDIT LOGS -->
+    <section class="page" id="page-audit">
+      <div class="page-controls">
+        <div class="filter-group">
+          <label class="filter-label">Organization ID</label>
+          <input class="filter-input" id="auditOrgId" placeholder="Enter org UUID…" />
+        </div>
+        <button class="btn btn-primary" onclick="loadAudit()">Load Logs</button>
+      </div>
+
+      <div class="audit-list" id="auditList">
+        <div class="empty-state">Enter an Organization ID and click Load Logs.</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- TOAST NOTIFICATION -->
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

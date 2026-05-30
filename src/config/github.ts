@@ -45,7 +45,16 @@ function getGithubApp(): App {
 // Lazily-evaluated proxy — only touches credentials when first used
 export const githubApp = new Proxy({} as App, {
   get(_target, prop) {
-    return Reflect.get(getGithubApp(), prop);
+    try {
+      return Reflect.get(getGithubApp(), prop);
+    } catch (e: any) {
+      // If oauth client options are not set, Octokit's oauth getter will throw.
+      // We catch this and return undefined so the middleware can skip OAuth routes safely.
+      if (prop === 'oauth') {
+        return undefined;
+      }
+      throw e;
+    }
   },
 });
 
